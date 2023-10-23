@@ -1,0 +1,12 @@
+[Unit]
+Description=Prometheus
+After=network.target
+
+[Service]
+ExecStart=/etc/prometheus/prometheus
+User=prometheus
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

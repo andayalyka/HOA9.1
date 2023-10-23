@@ -1,0 +1,81 @@
+---
+    - name: Install dependencies
+      package:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - wget
+        - tar
+
+    - name: Download Prometheus tarball
+      command: "wget https://github.com/prometheus/prometheus/releases/download/v2.30.3/prometheus-2.30.3.linux-amd64.tar.gz -O /tmp/prometheus.tar.gz"
+      args:
+        creates: /tmp/prometheus.tar.gz
+
+    - name: Copy Prometheus tarball to target machines
+      copy:
+        src: /tmp/prometheus.tar.gz
+        dest: /tmp/prometheus.tar.gz
+        mode: 0755
+
+    - name: Extract Prometheus
+      command: "tar -xvf /tmp/prometheus.tar.gz -C /tmp/"
+
+    - name: Create Prometheus group
+      group:
+        name: prometheus
+        state: present
+
+    - name: Create Prometheus user
+      user:
+        name: prometheus
+        groups: prometheus
+        shell: /bin/false
+        system: yes
+    - name: Remove existing Prometheus directory
+      file:
+        path: /etc/prometheus
+        state: absent
+
+    - name: Move Prometheus files
+      command: "mv /tmp/prometheus-2.30.3.linux-amd64/ /etc/prometheus"
+
+    - name: Create Prometheus directories
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - /etc/prometheus/data
+        - /etc/prometheus/rules
+        - /etc/prometheus/wal
+
+    - name: Copy Prometheus configuration
+      copy:
+        src: /etc/prometheus/prometheus.yml
+        dest: /etc/prometheus/prometheus.yml
+        mode: '0644'
+        remote_src: yes
+
+    - name: Set ownership and permissions
+      file:
+        path: "{{ item }}"
+        owner: prometheus
+        group: prometheus
+        recurse: yes
+      loop:
+        - /etc/prometheus/
+        - /etc/prometheus/data/
+        - /etc/prometheus/rules/
+        - /etc/prometheus/wal/
+
+    - name: Create systemd service
+      template:
+        src: prometheus.service.j2
+        dest: /etc/systemd/system/prometheus.service
+
+    - name: Reload systemd
+      systemd:
+        name: prometheus
+        enabled: yes
+        state: restarted
+
